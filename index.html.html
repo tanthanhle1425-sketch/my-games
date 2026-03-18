@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Tank Battle - Ultimate Edition</title>
+
+    <style>
+        body {
+            background: #0d0d0d;
+            color: white;
+            text-align: center;
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* MENU GAME */
+        #menu {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(135deg, #0d0d0d, #1a1a1a, #000);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.8s ease-out;
+            z-index: 10;
+        }
+
+        #menu h1 {
+            font-size: 70px;
+            letter-spacing: 4px;
+            margin-bottom: 40px;
+            color: #ffcc00;
+            text-shadow: 0 0 20px #ffcc00, 0 0 40px #ff9900;
+            animation: glow 2s infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #ffcc00; }
+            to { text-shadow: 0 0 25px #ffaa00; }
+        }
+
+        button {
+            padding: 18px 40px;
+            margin: 12px;
+            font-size: 22px;
+            cursor: pointer;
+            background: #222;
+            color: white;
+            border: 2px solid #ffcc00;
+            border-radius: 12px;
+            width: 280px;
+            transition: 0.25s;
+            box-shadow: 0 0 10px #000;
+        }
+
+        button:hover {
+            background: #ffcc00;
+            color: #000;
+            transform: scale(1.07);
+            box-shadow: 0 0 20px #ffcc00;
+        }
+
+        /* UI HP */
+        .ui {
+            background: rgba(20,20,20,0.9);
+            padding: 12px;
+            display: flex;
+            justify-content: center;
+            gap: 80px;
+            font-size: 24px;
+            border-bottom: 2px solid #333;
+        }
+
+        canvas {
+            background: #000;
+            border: 4px solid #444;
+            box-shadow: 0 0 20px #000;
+            margin-top: 10px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- MENU GAME -->
+    <div id="menu">
+        <h1>TANK BATTLE</h1>
+        <button onclick="startGame(false)">🎮 Chơi 2 Người</button>
+        <button onclick="startGame(true)">🤖 Chơi Với AI</button>
+        <button onclick="openSettings()">⚙️ Cài đặt</button>
+    </div>
+
+    <!-- SETTINGS POPUP -->
+    <div id="settings" style="
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85);
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 20;
+        animation: fadeIn 0.3s;
+    ">
+        <h2 style="font-size:50px; color:#ffcc00; text-shadow:0 0 20px #ffcc00;">CÀI ĐẶT</h2>
+
+        <div style="margin-top:20px; font-size:26px;">
+            <label>
+                <input type="checkbox" id="soundShoot" checked>
+                Âm thanh bắn
+            </label>
+        </div>
+
+        <div style="margin-top:20px; font-size:26px;">
+            <label>
+                <input type="checkbox" id="soundExplosion" checked>
+                Âm thanh nổ
+            </label>
+        </div>
+
+        <div style="margin-top:20px; font-size:26px;">
+            <label>
+                <input type="checkbox" id="bgmToggle" checked>
+                Nhạc nền
+            </label>
+        </div>
+
+        <button onclick="closeSettings()" style="margin-top:40px;">Đóng</button>
+    </div>
+
+    <!-- UI HP -->
+    <div class="ui">
+        <div style="color:#ff4d4d">P1: <span id="hp1">3</span> ❤️</div>
+        <div style="color:#4d4dff">P2: <span id="hp2">3</span> ❤️</div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const keys = new Map();
+        let isGameRunning = false;
+        let playWithAI = false;
+
+        /* ÂM THANH */
+        let sndShoot, sndExplosion, bgm;
+
+        let enableShootSound = true;
+        let enableExplosionSound = true;
+        let enableBGM = true;
+
+        function initSounds() {
+            sndShoot = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_7b4e9b02f2.mp3?filename=laser-gun-81220.mp3");
+            sndExplosion = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_6b4e9b02f2.mp3?filename=explosion-6081.mp3");
+
+            bgm = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_3e2f9b02f2.mp3?filename=arcade-music-loop-110379.mp3");
+            bgm.loop = true;
+            bgm.volume = 0.4;
+
+            if (enableBGM) bgm.play().catch(()=>{});
+        }
+
+        function openSettings() {
+            document.getElementById("settings").style.display = "flex";
+        }
+
+        function closeSettings() {
+            enableShootSound = document.getElementById("soundShoot").checked;
+            enableExplosionSound = document.getElementById("soundExplosion").checked;
+
+            let newBGM = document.getElementById("bgmToggle").checked;
+            if (newBGM !== enableBGM) {
+                enableBGM = newBGM;
+                if (enableBGM) bgm.play().catch(()=>{});
+                else bgm.pause();
+            }
+
+            document.getElementById("settings").style.display = "none";
+        }
+
+        /* PHÍM */
+        window.addEventListener('keydown', e => {
+            keys.set(e.code, true);
+            if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('keyup', e => keys.set(e.code, false));
+        window.addEventListener('blur', () => keys.clear());
+
+        /* TƯỜNG */
+        const walls = [
+            {x: 180, y: 120, w: 30, h: 360},
+            {x: 590, y: 120, w: 30, h: 360},
+            {x: 340, y: 270, w: 120, h: 60}
+        ];
+
+        /* HIỆU ỨNG NỔ */
+        let explosions = [];
+
+        class Explosion {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = 10;
+                this.life = 20;
+            }
+            update() {
+                this.size += 2;
+                this.life--;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255,150,0,${this.life/20})`;
+                ctx.fill();
+            }
+        }
+
+        /* TANK */
+        class Tank {
+            constructor(x, y, color, controls) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.angle = 0;
+                this.hp = 3;
+                this.controls = controls;
+                this.radius = 16;
+                this.lastShot = 0;
+            }
+            update() {
+                let vx = 0, vy = 0;
+                if (keys.get(this.controls.up)) vy -= 1;
+                if (keys.get(this.controls.down)) vy += 1;
+                if (keys.get(this.controls.left)) vx -= 1;
+                if (keys.get(this.controls.right)) vx += 1;
+
+                if (vx !== 0 || vy !== 0) {
+                    this.angle = Math.atan2(vy, vx);
+                    let nx = this.x + vx * 3.5, ny = this.y + vy * 3.5;
+                    if (!this.collide(nx, ny)) {
+                        this.x = nx;
+                        this.y = ny;
+
+                        explosions.push(new Explosion(this.x - vx * 10, this.y - vy * 10));
+                    }
+                }
+
+                if (keys.get(this.controls.fire) && Date.now() - this.lastShot > 400) {
+                    bullets.push(new Bullet(this.x, this.y, this.angle, this));
+                    if (enableShootSound) {
+                        const s = sndShoot.cloneNode();
+                        s.volume = 0.7;
+                        s.play().catch(()=>{});
+                    }
+                    this.lastShot = Date.now();
+                }
+            }
+            collide(nx, ny) {
+                return walls.some(w =>
+                    nx + 16 > w.x &&
+                    nx - 16 < w.x + w.w &&
+                    ny + 16 > w.y &&
+                    ny - 16 < w.y + w.h
+                );
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-16, -12, 32, 24);
+                ctx.fillStyle = "#fff";
+                ctx.fillRect(8, -4, 20, 8);
+                ctx.restore();
+            }
+        }
+
+        /* ĐẠN */
+        class Bullet {
+            constructor(x, y, angle, owner) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.owner = owner;
+                this.active = true;
+            }
+            update() {
+                this.x += Math.cos(this.angle) * 8;
+                this.y += Math.sin(this.angle) * 8;
+
+                if (
+                    this.x < 0 || this.x > 800 ||
+                    this.y < 0 || this.y > 600 ||
+                    walls.some(w =>
+                        this.x > w.x &&
+                        this.x < w.x + w.w &&
+                        this.y > w.y &&
+                        this.y < w.y + w.h
+                    )
+                ) {
+                    this.active = false;
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = "yellow";
+                ctx.shadowColor = "orange";
+                ctx.shadowBlur = 15;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        /* KHỞI TẠO */
+        let p1 = new Tank(80, 300, "#ff4d4d", {
+            up: 'KeyW',
+            down: 'KeyS',
+            left: 'KeyA',
+            right: 'KeyD',
+            fire: 'Space'
+        });
+
+        let p2 = new Tank(720, 300, "#4d4dff", {
+            up: 'ArrowUp',
+            down: 'ArrowDown',
+            left: 'ArrowLeft',
+            right: 'ArrowRight',
+            fire: 'Enter'
+        });
+
+        let bullets = [];
+
+        function startGame(ai) {
+            playWithAI = ai;
+            isGameRunning = true;
+
+            initSounds(); // KHỞI TẠO ÂM THANH SAU KHI BẤM START
+
+            document.getElementById('menu').style.display = 'none';
+            gameLoop();
+        }
+
+        /* GAME LOOP */
+        function gameLoop() {
+            if (!isGameRunning) return;
+
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, 800, 600);
+
+            ctx.fillStyle = "#444";
+            walls.forEach(w => ctx.fillRect(w.x, w.y, w.w, w.h));
+            
+            p1.update();
+            p1.draw();
+
+            if (playWithAI) {
+                p2.angle = Math.atan2(p1.y - p2.y, p1.x - p2.x);
+                if (Math.random() < 0.02) {
+                    bullets.push(new Bullet(p2.x, p2.y, p2.angle, p2));
+                    if (enableShootSound) {
+                        const s = sndShoot.cloneNode();
+                        s.volume = 0.7;
+                        s.play().catch(()=>{});
+                    }
+                }
+            } else {
+                p2.update();
+            }
+            p2.draw();
+
+            bullets = bullets.filter(b => {
+                b.update();
+                b.draw();
+
+                let t = (b.owner === p1) ? p2 : p1;
+                if (Math.hypot(b.x - t.x, b.y - t.y) < 20) {
+                    t.hp--;
+                    if (enableExplosionSound) {
+                        const e = sndExplosion.cloneNode();
+                        e.volume = 0.9;
+                        e.play().catch(()=>{});
+                    }
+                    explosions.push(new Explosion(t.x, t.y));
+
+                    document.getElementById('hp' + (t === p1 ? 1 : 2)).innerText = t.hp;
+
+                    if (t.hp <= 0) {
+                        alert("Winner: " + (b.owner === p1 ? "P1" : "P2"));
+                        location.reload();
+                    }
+                    return false;
+                }
+                return b.active;
+            });
+
+            explosions = explosions.filter(ex => {
+                ex.update();
+                ex.draw();
+                return ex.life > 0;
+            });
+
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+
+</body>
+</html>
